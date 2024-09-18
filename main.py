@@ -2,8 +2,58 @@
 
 import pywencai
 import pandas as pd
+import requests
+import json
 
 file_name = '复盘.csv'
+
+headers = {
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'DNT': '1',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "Windows"
+}
+
+param_map = {
+    '指数': {
+        "url": "https://x-quote.cls.cn/quote/stocks/basic",
+        "param": {
+            'app': 'CailianpressWeb',
+            'fields': 'secu_name,secu_code,trade_status,change,change_px,last_px',
+            'os': 'web',
+            'secu_codes': 'sh000001,sz399001,sz399006',
+            'sv': '7.7.5'
+        }
+    },
+    '连板天梯': {
+        "url": "https://x-quote.cls.cn/quote/index/up_down_analysis",
+        "param": {
+            'app': 'CailianpressWeb',
+            'os': 'web',
+            'sv': '7.7.5',
+            'rever': '1',
+            'type':'continuous_up_pool',
+            'way': 'limit_up_days'
+        }
+    }
+}
+
+def 指数():
+    # 发送 GET 请求
+    response = requests.get(param_map['指数']['url'], headers=headers, params=param_map['指数']['param'])
+    content = response.text.encode('utf-8').decode('unicode_escape')
+    return json.loads(content)
+
+def 连板天梯():
+    # 发送 GET 请求
+    response = requests.get(param_map['连板天梯']['url'], headers=headers, params=param_map['连板天梯']['param'])
+    return json.loads(response.text)
 
 def wencai(**kwargs):
     query = kwargs.get('query')
@@ -12,59 +62,44 @@ def wencai(**kwargs):
     res = pywencai.get(query=query, cookie=cookie, query_type=query_type)
     return res
 
-def lianban():
-    wencai(query='连扳天梯，展示涨停原因，非ST')
+def convert_to_percentage(s):
+    num = float(s)
+    result = "{:.2f}%".format(num * 100)
+    if num >= 0:
+        return "+" + result
+    else:
+        return result
 
-def 上证指数():
-    res = wencai(query='上证指数',query_type='zhishu')
-    return res['subjects']
-
-def 深圳成指():
-    res = wencai(query='深圳成指',query_type='zhishu')
-    return res['subjects']
-
-def 创业板指():
-    res = wencai(query='创业板指',query_type='zhishu')
-    return res['subjects']
-
-def write_markdown_file():
-    # 读取 CSV 文件
-    df = pd.read_csv('复盘.csv')
-
-    # 创建 Markdown 表格的表头部分
-    markdown_table = "| " + " | ".join(df.columns) + " |\n"
-    markdown_table += "| " + " | ".join(["---"] * len(df.columns)) + " |\n"
-
-    # 添加数据行
-    for _, row in df.iterrows():
-        markdown_table += "| " + " | ".join(map(str, row)) + " |\n"
-
-    # 将 Markdown 内容写入文件
-    with open('output.md', 'w', encoding='utf-8') as file:
-        file.write(markdown_table)
-
-zhishu = {
-    '上证指数': 上证指数,
-    '深证成指': 深圳成指,
-    '创业板指': 创业板指,
-}
 def write_大盘指数():
     markdown_content = "# 大盘指数\n\n"
     markdown_content += "| 指数 | 点位 | 涨跌 |\n"
     markdown_content += "| ---- | --- | --- |\n"
 
-    for zhishuname, zhishufunc in zhishu.items():
-        print(zhishuname)
-        res = zhishufunc()
-        print(res)
-        for key, value in res.items():
-            markdown_content += f"| {value['name']} | {value['latest_price']} | {value['rise_fall_rate']} |\n"
+    data = 指数()
+    zhishus = ['sh000001','sz399001','sz399006']
+    for zhishu in zhishus:
+        zhishu_data = data['data'][zhishu]
+        markdown_content += f"| {zhishu_data['secu_name']} | {zhishu_data['last_px']} | {convert_to_percentage(zhishu_data['change'])} |\n"
 
     with open('output.md', 'w', encoding='utf-8') as file:
-     file.write(markdown_content)    
+        file.write(markdown_content)    
+
+def write_连板天梯():
+    markdown_content = "# 连板天梯\n\n"
+    markdown_content += "| 连续涨停数 | 股票 | 涨停原因 |\n"
+    markdown_content += "| ---- | --- | --- |\n"
+
+    data = 连板天梯()
+    for stock in data['data']:
+        if 'ST' in stock['secu_name']:
+            continue
+        markdown_content += f"| {stock['limit_up_days']} | {stock['secu_name']} | {stock['up_reason'].split('|')[0]} |\n"
+
+    with open('output.md', 'w', encoding='utf-8') as file:
+        file.write(markdown_content)
 
 def main():
-    write_大盘指数()
+    write_连板天梯()
 
 if __name__ == "__main__":
     main()
