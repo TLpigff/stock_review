@@ -38,8 +38,16 @@ param_map = {
             'os': 'web',
             'sv': '7.7.5',
             'rever': '1',
-            'type':'continuous_up_pool',
+            'type': 'up_pool',
             'way': 'limit_up_days'
+        }
+    },
+    '个股涨跌': {
+        "url": "https://x-quote.cls.cn/v2/quote/a/stock/emotion",
+        "param": {
+            'app': 'CailianpressWeb',
+            'os': 'web',
+            'sv': '7.7.5'
         }
     }
 }
@@ -53,6 +61,11 @@ def 指数():
 def 连板天梯():
     # 发送 GET 请求
     response = requests.get(param_map['连板天梯']['url'], headers=headers, params=param_map['连板天梯']['param'])
+    return json.loads(response.text)
+
+def 个股涨跌():
+    # 发送 GET 请求
+    response = requests.get(param_map['个股涨跌']['url'], headers=headers, params=param_map['个股涨跌']['param'])
     return json.loads(response.text)
 
 def wencai(**kwargs):
@@ -72,17 +85,17 @@ def convert_to_percentage(s):
 
 def write_大盘指数():
     markdown_content = "# 大盘指数\n\n"
-    markdown_content += "| 指数 | 点位 | 涨跌 |\n"
+    markdown_content += "| 指数 | 涨跌 | 点位 |\n"
     markdown_content += "| ---- | --- | --- |\n"
 
     data = 指数()
     zhishus = ['sh000001','sz399001','sz399006']
     for zhishu in zhishus:
         zhishu_data = data['data'][zhishu]
-        markdown_content += f"| {zhishu_data['secu_name']} | {zhishu_data['last_px']} | {convert_to_percentage(zhishu_data['change'])} |\n"
+        markdown_content += f"| {zhishu_data['secu_name']} | {convert_to_percentage(zhishu_data['change'])} | {zhishu_data['last_px']}\n"
 
     with open('output.md', 'w', encoding='utf-8') as file:
-        file.write(markdown_content)    
+        file.write(markdown_content)
 
 def write_连板天梯():
     markdown_content = "# 连板天梯\n\n"
@@ -93,12 +106,55 @@ def write_连板天梯():
     for stock in data['data']:
         if 'ST' in stock['secu_name']:
             continue
-        markdown_content += f"| {stock['limit_up_days']} | {stock['secu_name']} | {stock['up_reason'].split('|')[0]} |\n"
+        if stock['limit_up_days'] == 1: 
+            continue
+        markdown_content += f"| {stock['limit_up_days']} | {stock['secu_name'][0] + '*' + stock['secu_name'][2:]} | {stock['up_reason'].split('|')[0]} |\n"
 
-    with open('output.md', 'w', encoding='utf-8') as file:
+    markdown_content += "# 今日首板\n\n"
+    markdown_content += "| 股票 | 涨停原因 |\n"
+    markdown_content += "| ---- | --- |\n"
+    for stock in data['data']:
+        if 'ST' in stock['secu_name']:
+            continue
+        if stock['limit_up_days'] > 1: 
+            continue
+        markdown_content += f"| {stock['secu_name'][0] + '*' + stock['secu_name'][2:]} | {stock['up_reason'].split('|')[0]} |\n"
+
+    with open('output.md', 'a', encoding='utf-8') as file:
+        file.write(markdown_content)
+
+def write_个股涨跌():
+    markdown_content = "# 个股涨跌\n\n"
+    data = 个股涨跌()['data']
+    up_down_data = data['up_down_dis']
+
+    markdown_content += "## 涨跌停详情\n\n"
+    markdown_content += "涨停家数  " + str(up_down_data['up_num']) + "，"
+    markdown_content += "跌停家数  " + str(up_down_data['down_num']) + '，'
+    markdown_content += "封板率  " + str(data['up_ratio']) + '，'
+    markdown_content += "两市成交量  " + data['shsz_balance'] + '，'
+    markdown_content += "较上日  " + data['shsz_balance_change_px'] + '\n'
+
+    markdown_content += "## 涨跌详情\n\n"
+    markdown_content += "上涨家数  " + str(up_down_data['rise_num']) + '，'
+    markdown_content += "下跌家数  " + str(up_down_data['fall_num']) + '，'
+    markdown_content += "平盘家数  " + str(up_down_data['flat_num']) + '\n'
+
+    markdown_content += "## 涨跌幅分布\n\n"
+    markdown_content += "| 幅度 | 涨幅超过 | 跌幅超过 | \n"
+    markdown_content += "| ---- | --- | --- |\n"
+    markdown_content += f"| 2% | {str(up_down_data['up_2'])} | {str(up_down_data['down_2'])} |\n"
+    markdown_content += f"| 4% | {str(up_down_data['up_4'])} | {str(up_down_data['down_4'])} |\n"
+    markdown_content += f"| 6% | {str(up_down_data['up_6'])} | {str(up_down_data['down_6'])} |\n"
+    markdown_content += f"| 8% | {str(up_down_data['up_8'])} | {str(up_down_data['down_8'])} |\n"
+    markdown_content += f"| 10% | {str(up_down_data['up_10'])} | {str(up_down_data['down_10'])} |\n"
+
+    with open('output.md', 'a', encoding='utf-8') as file:
         file.write(markdown_content)
 
 def main():
+    write_大盘指数()
+    write_个股涨跌()
     write_连板天梯()
 
 if __name__ == "__main__":
