@@ -1,9 +1,11 @@
 # 根据公开资料整理，不作为买卖依据
 
-import pywencai
+import wencai
 import pandas as pd
 import requests
 import json
+from datetime import datetime
+
 
 file_name = '复盘.csv'
 
@@ -27,7 +29,7 @@ param_map = {
             'app': 'CailianpressWeb',
             'fields': 'secu_name,secu_code,trade_status,change,change_px,last_px',
             'os': 'web',
-            'secu_codes': 'sh000001,sz399001,sz399006',
+            'secu_codes': 'sh000001,sz399001,sz399006,sh000688,899050.BJ',
             'sv': '7.7.5'
         }
     },
@@ -68,11 +70,9 @@ def 个股涨跌():
     response = requests.get(param_map['个股涨跌']['url'], headers=headers, params=param_map['个股涨跌']['param'])
     return json.loads(response.text)
 
-def wencai(**kwargs):
-    query = kwargs.get('query')
-    query_type = kwargs.get('query_type','stock')
+def wencai1(query,query_type):
     cookie='other_uid=Ths_iwencai_Xuangu_s1e2xtpqi8wty9vgts3up1aeklanhmsa; ta_random_userid=s9cfw1a6ol; cid=5b58f21b2099cb8b327c3c71a9581bb01726156949; PHPSESSID=ddabea4a55168ee404f6f19e9f636e0f; wencai_pc_version=1; v=AysXlKL2yaQYXxXC3FxA3wUgukQQQG-WuUMDbZ0sBqbBh0U6JRDPEskkk2au'
-    res = pywencai.get(query=query, cookie=cookie, query_type=query_type)
+    res = wencai.get(query=query, cookie=cookie, query_type=query_type)
     return res
 
 def convert_to_percentage(s):
@@ -84,18 +84,70 @@ def convert_to_percentage(s):
         return result
 
 def write_大盘指数():
-    markdown_content = "# 大盘指数\n\n"
+    markdown_content = "# 大盘\n\n"
     markdown_content += "| 指数 | 涨跌 | 点位 |\n"
     markdown_content += "| ---- | --- | --- |\n"
 
     data = 指数()
-    zhishus = ['sh000001','sz399001','sz399006']
+    zhishus = ['sh000001','sz399001','sz399006','sh000688','899050.BJ']
     for zhishu in zhishus:
         zhishu_data = data['data'][zhishu]
         markdown_content += f"| {zhishu_data['secu_name']} | {convert_to_percentage(zhishu_data['change'])} | {zhishu_data['last_px']}\n"
 
+    data = 个股涨跌()['data']
+    markdown_content += "两市成交量  " + data['shsz_balance'] + '，'
+    markdown_content += "较上日  " + data['shsz_balance_change_px'] + '\n'
+
     with open('output.md', 'w', encoding='utf-8') as file:
         file.write(markdown_content)
+
+def write_行业板块():
+    current_date = datetime.now()
+    formatted_date = current_date.strftime('%Y%m%d')
+
+    markdown_content = "# 行业概念板块\n\n"
+    markdown_content += "## 行业流入前十\n\n"
+    markdown_content += "| 行业 | 净流入  |\n"
+    markdown_content += "| ---- | --- |\n"
+
+    data = wencai1('二级行业板块主力净流入前十','zhishu')
+
+    for index,row in data.iterrows():
+        money = "%.2f亿元" % (row['指数@主力资金流向[{}]'.format(formatted_date)] / 100000000)
+        markdown_content += f"| {row['指数简称']} | {money} |\n"
+
+    markdown_content += "## 行业流出前五\n\n"
+    markdown_content += "| 行业 | 净流入  |\n"
+    markdown_content += "| ---- | --- |\n"
+
+    data = wencai1('二级行业板块主力净流出前五','zhishu')
+
+    for index,row in data.iterrows():
+        money = "%.2f亿元" % (row['指数@主力资金流向[{}]'.format(formatted_date)] / 100000000)
+        markdown_content += f"| {row['指数简称']} | {money} |\n"
+
+    markdown_content += "## 概念板块涨幅前十\n\n"
+    markdown_content += "| 概念名称 | 涨跌幅  |\n"
+    markdown_content += "| ---- | --- |\n"
+
+    data = wencai1('概念板块涨幅前十','zhishu')
+
+    for index,row in data.iterrows():
+        value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
+        markdown_content += f"| {row['指数简称']} | {value} |\n"    
+
+    markdown_content += "## 概念板块跌幅前五\n\n"
+    markdown_content += "| 概念名称 | 涨跌幅  |\n"
+    markdown_content += "| ---- | --- |\n"
+
+    data = wencai1('概念板块跌幅前五','zhishu')
+
+    for index,row in data.iterrows():
+        value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
+        markdown_content += f"| {row['指数简称']} | {value} |\n"
+
+    with open('output.md', 'a', encoding='utf-8') as file:
+        file.write(markdown_content)    
 
 def write_连板天梯():
     markdown_content = "# 连板天梯\n\n"
@@ -132,8 +184,6 @@ def write_个股涨跌():
     markdown_content += "涨停家数  " + str(up_down_data['up_num']) + "，"
     markdown_content += "跌停家数  " + str(up_down_data['down_num']) + '，'
     markdown_content += "封板率  " + str(data['up_ratio']) + '，'
-    markdown_content += "两市成交量  " + data['shsz_balance'] + '，'
-    markdown_content += "较上日  " + data['shsz_balance_change_px'] + '\n'
 
     markdown_content += "## 涨跌详情\n\n"
     markdown_content += "上涨家数  " + str(up_down_data['rise_num']) + '，'
@@ -154,6 +204,7 @@ def write_个股涨跌():
 
 def main():
     write_大盘指数()
+    write_行业板块()
     write_个股涨跌()
     write_连板天梯()
 
