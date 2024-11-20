@@ -4,10 +4,11 @@ import wencai
 import pandas as pd
 import requests
 import json
-from datetime import datetime
+import datetime
 
 
-current_date = datetime.now()
+current_date = datetime.datetime.now()
+#current_date = current_date - datetime.timedelta(days=1)
 formatted_date = current_date.strftime('%Y%m%d')
 
 file_name = '复盘.csv'
@@ -130,7 +131,7 @@ def write_行业板块():
     markdown_content += "| 概念名称 | 涨跌幅  | 涨停家数 |\n"
     markdown_content += "| ---- | --- | --- |\n"
 
-    data = wencai1('概念板块涨幅前十，显示涨停家数','zhishu')
+    data = wencai1('概念板块涨幅排名前十，显示涨停家数','zhishu')
 
     for index,row in data.iterrows():
         value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
@@ -140,8 +141,7 @@ def write_行业板块():
     markdown_content += "| 概念名称 | 涨跌幅  |\n"
     markdown_content += "| ---- | --- |\n"
 
-    data = wencai1('概念板块跌幅前五','zhishu')
-
+    data = wencai1('概念板块涨幅排名最后五个','zhishu')
     for index,row in data.iterrows():
         value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
         markdown_content += f"| {row['指数简称']} | {value} |\n"
@@ -177,28 +177,43 @@ def write_连板天梯():
     beijiao_data = wencai1('今日北交所涨停,非ST','stock')
     zhuban_data = wencai1('今日主板涨停,非ST','stock')
 
-    markdown_content += "今日创业板涨停{}家，".format(len(chuangye_data))
-    markdown_content += "科创板板涨停{}家，".format(len(kechuang_data))
-    markdown_content += "北交所涨停{}家，".format(len(beijiao_data))
-    markdown_content += "主板涨停{}家。".format(len(zhuban_data))
+    if chuangye_data is None:
+        markdown_content += "今日创业板涨停0家，"
+    else:    
+        markdown_content += "今日创业板涨停{}家，".format(len(chuangye_data))
+    
+    if kechuang_data is None:
+        markdown_content += "科创板涨停0家，"
+    else:    
+        markdown_content += "科创板涨停{}家，".format(len(kechuang_data))
+    
+    if beijiao_data is None:
+        markdown_content += "北交所涨停0家，"
+    else:    
+        markdown_content += "北交所涨停{}家，".format(len(beijiao_data))
+    
+    if zhuban_data is None:
+        markdown_content += "主板涨停0家。"
+    else:    
+        markdown_content += "主板涨停{}家。\n".format(len(zhuban_data))
 
     markdown_content += "## 连板天梯\n\n"
-    markdown_content += "| 连续涨停天数 | 股票名称  | 涨停原因 |\n"
-    markdown_content += "| ---- | --- | --- |\n"
+    markdown_content += "| 连续涨停天数 | 股票名称  | 最终涨停时间 | 涨停原因 |\n"
+    markdown_content += "| ---- | --- | --- | --- |\n"
 
-    data = wencai1('连板天梯，非ST，显示涨停原因','stock')
+    data = wencai1('连板天梯，非ST，显示涨停原因，显示涨停时间','stock')
 
     for index,row in data.iterrows():
-        markdown_content += f"| {row['连续涨停天数[{}]'.format(formatted_date)]} | {row['股票简称']} | {row['涨停原因类别[{}]'.format(formatted_date)]} |\n"  
+        markdown_content += f"| {row['连续涨停天数[{}]'.format(formatted_date)]} | {row['股票简称']} | {row['最终涨停时间[{}]'.format(formatted_date)]}  | {row['涨停原因类别[{}]'.format(formatted_date)]} |\n"  
 
     markdown_content += "## 今日首板\n\n"
-    markdown_content += "| 股票名称  | 涨停原因 |\n"
-    markdown_content += "| ---- | --- |\n"
+    markdown_content += "| 股票名称  | 最终涨停时间 | 涨停原因 |\n"
+    markdown_content += "| ---- | --- | --- |\n"
 
     data = wencai1('今日首板，非ST，按首次涨停时间排序，显示涨停原因','stock')
 
     for index,row in data.iterrows():
-        markdown_content += f"| {row['股票简称']} | {row['涨停原因类别[{}]'.format(formatted_date)]} |\n"  
+        markdown_content += f"| {row['股票简称']} | {row['最终涨停时间[{}]'.format(formatted_date)]}  | {row['涨停原因类别[{}]'.format(formatted_date)]} |\n"  
 
 
     with open('output.md', 'a', encoding='utf-8') as file:
