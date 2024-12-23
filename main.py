@@ -131,7 +131,7 @@ def write_行业板块():
     markdown_content += "| 概念名称 | 涨跌幅  | 涨停家数 |\n"
     markdown_content += "| ---- | --- | --- |\n"
 
-    data = wencai1('概念板块涨幅排名前十，显示涨停家数','zhishu')
+    data = wencai1('概念板块涨跌幅排名前十，显示涨停家数','zhishu')
 
     for index,row in data.iterrows():
         value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
@@ -141,7 +141,7 @@ def write_行业板块():
     markdown_content += "| 概念名称 | 涨跌幅  |\n"
     markdown_content += "| ---- | --- |\n"
 
-    data = wencai1('概念板块涨幅排名最后五个','zhishu')
+    data = wencai1('概念板块涨跌幅排名最后五个','zhishu')
     for index,row in data.iterrows():
         value = "%.2f%%" % (float(row['指数@涨跌幅:前复权[{}]'.format(formatted_date)]))
         markdown_content += f"| {row['指数简称']} | {value} |\n"
@@ -246,11 +246,33 @@ def write_个股涨跌():
     with open('output.md', 'a', encoding='utf-8') as file:
         file.write(markdown_content)
 
+def write_热点榜():
+    markdown_content = "# 同花顺人气前20\n\n"
+    data = renqi_data = wencai1('人气榜前20，几天几板，涨停原因','stock')
+    markdown_content += "| 人气榜排名 | 股票名称 | 涨跌幅 | 几天几板 | 涨停原因类别 |\n"
+    markdown_content += "| ---- | --- | --- | --- | --- |\n"
+
+    for index,row in renqi_data.iterrows():
+        value = "{:.2f}%".format(float(row['最新涨跌幅']))
+        jitianjiban = row['几天几板[{}]'.format(formatted_date)]
+        if jitianjiban is None:
+            jitianjiban = '-'
+
+        zhangtingyuanyin = row['涨停原因类别[{}]'.format(formatted_date)]
+        if zhangtingyuanyin is None:
+            zhangtingyuanyin = '-'    
+        markdown_content += f"| {row['个股热度排名[{}]'.format(formatted_date)]} | {row['股票简称']}  | {value} | {jitianjiban} | {zhangtingyuanyin} | \n"  
+
+
+    with open('output.md', 'a', encoding='utf-8') as file:
+        file.write(markdown_content)
+
 def main():
     write_大盘指数()
     write_个股涨跌()
     write_行业板块()
     write_连板天梯()
+    write_热点榜()
 
 if __name__ == "__main__":
     main()

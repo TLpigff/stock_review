@@ -6,7 +6,7 @@ import time
 import datetime
 
 current_date = datetime.datetime.now()
-current_date = current_date - datetime.timedelta(days=1)
+#current_date = current_date - datetime.timedelta(days=1)
 formatted_date = current_date.strftime('%Y%m%d')
 
 def wencai1(query,query_type):
